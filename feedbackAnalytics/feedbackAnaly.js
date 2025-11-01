@@ -187,11 +187,9 @@ const router = express.Router();
 router.get("/feedback/analytics/global", async (req, res) => {
   try {
     const totalFeedbacks = await Feedbacks.countDocuments();
-
     const result = await Feedbacks.aggregate([
       { $group: { _id: null, averageRating: { $avg: "$rating" } } },
     ]);
-
     const averageRating = result.length ? result[0].averageRating.toFixed(2) : 0;
 
     res.status(200).json({
@@ -211,16 +209,12 @@ router.get("/feedback/analytics/global", async (req, res) => {
 router.get("/feedback/analytics/:branchId", async (req, res) => {
   try {
     const { branchId } = req.params;
-
     const totalFeedbacks = await Feedbacks.countDocuments({ qrId: branchId });
-
     const result = await Feedbacks.aggregate([
       { $match: { qrId: new mongoose.Types.ObjectId(branchId) } },
       { $group: { _id: "$qrId", averageRating: { $avg: "$rating" } } },
     ]);
-
     const averageRating = result.length ? result[0].averageRating.toFixed(2) : 0;
-
     res.status(200).json({
       success: true,
       branchId,
@@ -234,7 +228,7 @@ router.get("/feedback/analytics/:branchId", async (req, res) => {
 });
 
 // =========================
-// 1️⃣ Rating Distribution (per branch)
+// 1 Rating Distribution (per branch)
 // =========================
 router.get("/feedback/insights/distribution/:branchId", async (req, res) => {
   try {
@@ -280,7 +274,6 @@ router.get("/feedback/insights/active-branches", async (req, res) => {
         };
       })
     );
-
     res.json({ success: true, mostActiveBranches: populated });
   } catch (err) {
     console.error("Active Branches Error:", err);
@@ -318,7 +311,7 @@ router.get("/feedback/insights/monthly-trends", async (req, res) => {
 });
 
 // =========================
-// 4️⃣ CSV Export (All Feedbacks)
+//  CSV Export (All Feedbacks)
 // =========================
 router.get("/feedback/insights/export/csv", async (req, res) => {
   try {
@@ -336,6 +329,7 @@ router.get("/feedback/insights/export/csv", async (req, res) => {
     res.status(500).json({ success: false, message: "Server error", error: err.message });
   }
 });
+
 
 export default router;
 

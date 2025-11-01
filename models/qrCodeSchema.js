@@ -9,6 +9,7 @@ const qrCodeSchema = new mongoose.Schema(
   }
 );
 
+
 export default mongoose.model("QrCode", qrCodeSchema);
 
 
