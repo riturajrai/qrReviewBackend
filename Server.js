@@ -18,7 +18,7 @@ connectDB();
 
 // CORS setup
 app.use(cors({
-  origin: ['http://localhost:3000'],
+  origin: ['https://qrreviewussystem.netlify.app'],
   methods: ['GET', 'PUT', 'POST', 'PATCH', 'DELETE'],
   credentials: true , // important for cookies
 }));
@@ -34,5 +34,6 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(` Server is running on port ${PORT}`);
 });
+
 
 
