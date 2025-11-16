@@ -11,14 +11,12 @@ export const sendMail = async (to, subject, text) => {
         pass: process.env.GMAIL_APP_PASSWORD,
       },
     });
-
     const mailOptions = {
       from: `"Qr Review Us Software" <${process.env.GMAIL_USER}>`,
       to,
       subject,
       text,
     };
-
     await transporter.sendMail(mailOptions);
     console.log(`Email sent to ${to}`);
   } catch (error) {

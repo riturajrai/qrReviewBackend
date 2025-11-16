@@ -1,18 +1,14 @@
 import express from "express";
-import multer from "multer";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import QRCode from "qrcode";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import QrImage from "../models/QrImage.js";
-import dotenv from "dotenv";
 import { authMiddleware } from "../middleware/authMiddleware.js";
+import dotenv from "dotenv";
 
 dotenv.config();
 const router = express.Router();
 
-// --- Multer Setup ---
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
-
-// --- AWS S3 Setup ---
+// AWS S3 CLIENT
 const s3 = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
@@ -21,73 +17,138 @@ const s3 = new S3Client({
   },
 });
 
-// --- Upload QR (Protected) ---
-router.post("/upload-qr", authMiddleware, upload.single("qr"), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: "No file uploaded" });
-    }
+//Function to generate 10 digit random ID
+const generateRandomId = () => {
+  return Math.random().toString().slice(2, 12); // 10 digits
+};
 
-    const fileName = `${Date.now()}-${req.file.originalname}`;
-    const params = {
-      Bucket: process.env.AWS_BUCKET_NAME,
-      Key: fileName,
-      Body: req.file.buffer,
-      ContentType: req.file.mimetype, // MIME type correct set karna
-    };
-
-    // Upload to S3
-    await s3.send(new PutObjectCommand(params));
-
-    // S3 URL
-    const imageUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
-
-    // Save in DB with user info
-    const qrDoc = new QrImage({
-      imageUrl,
-      user: req.user._id, // "uploadedBy" se same field ho jo findOne me search kar rahi ho
-      createdAt: new Date(),
-    });
-
-    await qrDoc.save();
-
-    res.status(200).json({ success: true, message: "QR uploaded successfully", url: imageUrl });
-  } catch (error) {
-    console.error("Upload QR Error:", error);
-    res.status(500).json({ success: false, message: "Upload failed", error: error.message });
-  }
-});
-
-// --- Get QR of logged-in user ---
-router.get("/qr", authMiddleware, async (req, res) => {
+// =============================================================
+// Generate QR (One-time only)
+// =============================================================
+router.post("/generate-qr", authMiddleware, async (req, res) => {
   try {
     const userId = req.user._id;
-    const qr = await QrImage.findOne({ user: userId }).sort({ createdAt: -1 }); 
-    // latest QR fetch karne ke liye sort use kiya
-    if (!qr) {
-      return res.status(404).json({ message: "No QR found for this user" });
+
+    const already = await QrImage.findOne({ user: userId });
+    if (already) {
+      return res.status(400).json({
+        success: false,
+        message: "QR already generated",
+        qr: already,
+      });
     }
-    res.status(200).json({ message: "Successfully fetched", qr });
-  } catch (error) {
-    console.error("Fetch QR Error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+
+    // Generate 10-digit ID
+    const randomId = generateRandomId();
+
+    // Create redirect link
+    const redirectURL = `http://localhost:3000/form/${randomId}`;
+
+    // Generate QR code with that URL
+    const qrBuffer = await QRCode.toBuffer(redirectURL, {
+      type: "png",
+      width: 600,
+      errorCorrectionLevel: "H",
+    });
+
+    // Upload to S3
+    const fileName = `qr-${userId}-${randomId}.png`;
+
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: fileName,
+        Body: qrBuffer,
+        ContentType: "image/png",
+      })
+    );
+
+    const imageUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+
+    // Save in MongoDB
+    const qrDoc = await QrImage.create({
+      user: userId,
+      imageUrl,
+      s3Key: fileName,
+      randomId: randomId,
+      data: redirectURL,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "QR generated successfully",
+      qr: qrDoc,
+    });
+  } catch (err) {
+    console.log("QR GENERATE ERROR:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// --- Get QR by ID ---
-router.get("/qr/:id", authMiddleware, async (req, res) => {
+// =============================================================
+//  Get My QR
+// =============================================================
+
+router.get("/my-qr", authMiddleware, async (req, res) => {
   try {
-    const qrId = req.params.id; 
-    const qr = await QrImage.findById(qrId);
+    const qr = await QrImage.findOne({ user: req.user._id });
 
     if (!qr) {
-      return res.status(404).json({ message: "QR not found" });
+      return res.status(404).json({
+        success: false,
+        message: "QR not found",
+      });
     }
 
-    res.status(200).json({ message: "Successfully fetched", qr });
-  } catch (error) {
-    console.error("Fetch QR by ID Error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(200).json({ success: true, qr });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+
+// =============================================================
+//  DELETE QR (From S3 + DB)
+// =============================================================
+
+
+router.delete("/delete-qr", authMiddleware, async (req, res) => {
+  try {
+    const qr = await QrImage.findOne({ user: req.user._id });
+
+    if (!qr) {
+      return res.status(404).json({
+        success: false,
+        message: "QR not found",
+      });
+    }
+
+    if (!qr.s3Key) {
+      return res.status(400).json({
+        success: false,
+        message: "Error: QR s3Key missing in database",
+      });
+    }
+
+    // Delete from S3
+    await s3.send(
+      new DeleteObjectCommand({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: qr.s3Key,
+      })
+    );
+
+    // Delete from DB
+    await QrImage.deleteOne({ _id: qr._id });
+
+    res.status(200).json({
+      success: true,
+      message: "QR deleted successfully",
+    });
+  } catch (err) {
+    console.log("QR DELETE ERROR:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

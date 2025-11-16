@@ -2,7 +2,7 @@
 import nodemailer from "nodemailer";
 import twilio from "twilio";
 
-// ✅ EMAIL SETUP
+// EMAIL SETUP
 export const sendEmailNotification = async (review) => {
   try {
     const transporter = nodemailer.createTransport({
@@ -12,11 +12,10 @@ export const sendEmailNotification = async (review) => {
         pass: process.env.EMAIL_PASS, // your App Password (not normal password)
       },
     });
-
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: process.env.BUSINESS_EMAIL, // business owner email
-      subject: "📢 New Customer Review Submitted",
+      subject: " New Customer Review Submitted",
       html: `
         <h2>New Review Alert</h2>
         <p><strong>Name:</strong> ${review.name}</p>
@@ -25,25 +24,24 @@ export const sendEmailNotification = async (review) => {
         <p><strong>Branch:</strong> ${review.branchName || "Main"}</p>
       `,
     };
-
     await transporter.sendMail(mailOptions);
-    console.log("✅ Email sent successfully");
+    console.log(" Email sent successfully");
   } catch (error) {
-    console.error("❌ Error sending email:", error.message);
+    console.error(" Error sending email:", error.message);
   }
-};
+}; 
 
-// ✅ SMS SETUP (Optional)
+// SMS SETUP (Optional)
 export const sendSMSNotification = async (review) => {
   try {
     const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH_TOKEN);
     await client.messages.create({
       body: `New Review: ${review.name} (${review.rating}⭐) - ${review.comment}`,
       from: process.env.TWILIO_PHONE,
-      to: process.env.BUSINESS_PHONE, // your number
+      to: process.env.BUSINESS_PHONE, 
     });
-    console.log("✅ SMS sent successfully");
+    console.log(" SMS sent successfully");
   } catch (error) {
-    console.error("❌ Error sending SMS:", error.message);
+    console.error(" Error sending SMS:", error.message);
   }
 };
