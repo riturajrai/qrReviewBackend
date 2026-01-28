@@ -44,6 +44,7 @@ router.post("/signup", async (req, res) => {
   }
 });
 
+
 // --- Login ---
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
@@ -58,8 +59,8 @@ router.post("/login", async (req, res) => {
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "100y" });
     res.cookie("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // secure only in prod
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure:  true, // secure only in prod
+      sameSite:  "none",
       maxAge: 100 * 365 * 24 * 60 * 60 * 1000, // ~100 years
     });
 
@@ -72,6 +73,7 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
 
 // --- Check Authentication ---
 router.get("/auth/me", verifyToken, async (req, res) => {
@@ -260,5 +262,6 @@ router.post("/reset-password", async (req, res) => {
     res.status(400).json({ message: "Invalid or expired OTP" });
   }
 });
+
 
 export default router;
