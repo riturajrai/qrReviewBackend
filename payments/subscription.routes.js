@@ -45,18 +45,21 @@ router.post("/create-subscription", authMiddleware, async (req, res) => {
       type: "subscription",
       status: "created",
     });
-
-    //  5 minutes = 300000 ms
     if (existing) {
-      const timeDiff = Date.now() - new Date(existing.createdAt).getTime();
-
+      const timeDiff =
+        Date.now() - new Date(existing.createdAt).getTime();
+      // 5 min ke andar hai → same payment page
       if (timeDiff < 5 * 60 * 1000) {
-        return res.status(400).json({
-          success: false,
-          message: "Previous subscription pending. Please complete payment.",
+        return res.json({
+          success: true,
+          subscription: {
+            short_url: existing.shortUrl, // SAME URL
+            status: "pending",
+          },
         });
       }
-      //  timeout crossed → cancel old subscription
+
+      // expired → cancel old
       await razorpay.subscriptions.cancel(existing.subscriptionId);
 
       await Payment.updateOne(
@@ -65,7 +68,7 @@ router.post("/create-subscription", authMiddleware, async (req, res) => {
       );
     }
 
-    //  create fresh subscription
+    //  create new subscription
     const subscription = await razorpay.subscriptions.create({
       plan_id: process.env.RAZORPAY_PRO_PLAN_ID,
       customer_notify: 1,
@@ -80,11 +83,18 @@ router.post("/create-subscription", authMiddleware, async (req, res) => {
       status: "created",
       amount: 1999,
       currency: "INR",
+      shortUrl: subscription.short_url,
     });
 
-    res.json({ success: true, subscription });
+    res.json({
+      success: true,
+      subscription,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 });
 
