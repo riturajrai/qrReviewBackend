@@ -56,7 +56,6 @@ router.post("/create-subscription", authMiddleware, async (req, res) => {
           message: "Previous subscription pending. Please complete payment.",
         });
       }
-
       //  timeout crossed → cancel old subscription
       await razorpay.subscriptions.cancel(existing.subscriptionId);
 
@@ -111,7 +110,7 @@ router.post(
 
       const event = JSON.parse(req.body.toString());
 
-      // ✅ payment successful
+      //  payment successful
       if (event.event === "subscription.activated") {
         await Payment.findOneAndUpdate(
           { subscriptionId: event.payload.subscription.entity.id },
@@ -133,5 +132,14 @@ router.post(
     }
   }
 );
+
+router.get("/subscription-status", authMiddleware, async (req, res) => {
+  const sub = await Payment.findOne({
+    userId: req.user._id,
+    type: "subscription",
+  }).sort({ createdAt: -1 });
+
+  res.json({ status: sub?.status || "none" });
+});
 
 export default router;
