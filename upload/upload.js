@@ -43,7 +43,7 @@ router.post("/generate-qr", authMiddleware, async (req, res) => {
     const randomId = generateRandomId();
 
     // Create redirect link
-    const redirectURL = `https://qr-review-system-fronmtend-7kye.vercel.app/form/${randomId}`;
+    const redirectURL = `http://localhost:3000/form/${randomId}`;
 
     // Generate QR code with that URL
     const qrBuffer = await QRCode.toBuffer(redirectURL, {

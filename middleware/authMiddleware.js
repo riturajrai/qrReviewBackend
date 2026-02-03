@@ -9,22 +9,18 @@ export const authMiddleware = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({ message: "Not authenticated" });
     }
-
     // 2. Token verify karo
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (!decoded) {
       return res.status(401).json({ message: "Invalid token" });
-    }
-
+    };
     // 3. User find karo
     const user = await Signup.findById(decoded.id).select("-password");
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
-    
     // 4. User ko req me attach karo
     req.user = user;
-
     // Next middleware/route handler chalao
     next();
   } catch (error) {

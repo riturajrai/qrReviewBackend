@@ -11,12 +11,10 @@ const router = express.Router();
 function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
-
 // --- Middleware: Verify JWT ---
 const verifyToken = (req, res, next) => {
   const token = req.cookies.token;
   if (!token) return res.status(401).json({ message: "Access denied. No token." });
-
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.userId = decoded.id;
@@ -32,11 +30,9 @@ router.post("/signup", async (req, res) => {
   try {
     const existUser = await Signup.findOne({ email });
     if (existUser) return res.status(400).json({ message: "User already exists" });
-
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new Signup({ username, email, password: hashedPassword });
     await newUser.save();
-
     res.status(201).json({ message: "User registered successfully" });
   } catch (error) {
     console.log("Error during signup:", error);
@@ -48,14 +44,11 @@ router.post("/signup", async (req, res) => {
 // --- Login ---
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
-
   try {
     const user = await Signup.findOne({ email });
     if (!user) return res.status(400).json({ message: "User not found" });
-
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
-
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "100y" });
     res.cookie("token", token, {
       httpOnly: true,
@@ -63,7 +56,6 @@ router.post("/login", async (req, res) => {
       sameSite:  "none",
       maxAge: 100 * 365 * 24 * 60 * 60 * 1000, // ~100 years
     });
-
     res.status(200).json({
       message: "Login successful",
       user: { id: user._id, username: user.username, email: user.email, phone: user.phone },
@@ -262,6 +254,5 @@ router.post("/reset-password", async (req, res) => {
     res.status(400).json({ message: "Invalid or expired OTP" });
   }
 });
-
 
 export default router;

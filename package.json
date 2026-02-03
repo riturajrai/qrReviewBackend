@@ -26,6 +26,7 @@
     "nanoid": "^5.1.6",
     "nodemailer": "^7.0.9",
     "qrcode": "^1.5.4",
+    "razorpay": "^2.9.6",
     "shortid": "^2.2.17",
     "twilio": "^5.10.3"
   },

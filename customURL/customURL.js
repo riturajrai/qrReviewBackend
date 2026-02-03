@@ -29,11 +29,9 @@ router.post("/set-url", authMiddleware, async (req, res) => {
     if (existing) {
       existing.url = url;
       existing.companyName = companyName;
-
       if (redirectFromRating !== undefined) {
         existing.redirectFromRating = redirectFromRating;
       }
-
       await existing.save();
     } else {
       existing = await CustomURL.create({
@@ -54,8 +52,6 @@ router.post("/set-url", authMiddleware, async (req, res) => {
   }
 });
 
-
-
 //  READ / Get URL & Company Name by qrId
 router.get("/get-url/:qrId", async (req, res) => {
   const { qrId } = req.params;
@@ -75,7 +71,6 @@ router.get("/get-url/:qrId", async (req, res) => {
     redirectFromRating: customURL.redirectFromRating,
   },
 });
-
   } catch (err) {
     console.error("Error fetching custom URL:", err);
     res.status(500).json({ success: false, message: err.message });
@@ -172,8 +167,6 @@ router.get("/get-url", authMiddleware, async (req, res) => {
         redirectFromRating: customURL.redirectFromRating,
       },
     });
-
-
   } catch (err) {
     console.error("Error fetching custom URL:", err);
     res.status(500).json({ success: false, message: err.message });

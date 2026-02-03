@@ -15,7 +15,7 @@ export const sendEmailNotification = async (review) => {
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: process.env.BUSINESS_EMAIL, // business owner email
-      subject: " New Customer Review Submitted",
+      subject: "New Customer Review Submitted",
       html: `
         <h2>New Review Alert</h2>
         <p><strong>Name:</strong> ${review.name}</p>

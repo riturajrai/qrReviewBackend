@@ -6,10 +6,10 @@ import cookieParser from "cookie-parser";
 import upload from './upload/upload.js';
 import customURLRoutes from "./customURL/customURL.js";
 import feedbackRoutes from "./feedbackRoutes/feedbackRoutes.js";
-
+import payment from './payments/subscription.routes.js'
 const app = express();
 
-// Middlewares
+// Middlewaress
 app.use(express.json());
 app.use(cookieParser());
 
@@ -33,7 +33,7 @@ app.use('/api', signupAuth);
 app.use('/api', upload);
 app.use('/api', feedbackRoutes);
 app.use('/api/custom-url', customURLRoutes);
-
+app.use('/api' , payment)
 // Health check
 app.get('/', async (req, res) => {
   res.status(200).send("Server is running ");
