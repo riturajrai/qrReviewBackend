@@ -5,19 +5,28 @@ const paymentSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
+      required: true,
     },
 
-    // ----- ORDER (one-time) -----
+    // ===== ONE-TIME PAYMENT =====
     orderId: String,
     paymentId: String,
     signature: String,
 
-    // ----- SUBSCRIPTION -----
+    // ===== SUBSCRIPTION =====
     subscriptionId: String,
     planId: String,
+    shortUrl: String,
 
-    amount: Number,
-    currency: String,
+    amount: {
+      type: Number, // paise
+      required: true,
+    },
+
+    currency: {
+      type: String,
+      default: "INR",
+    },
 
     type: {
       type: String,
@@ -27,13 +36,7 @@ const paymentSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: [
-        "created",
-        "paid",
-        "active",
-        "cancelled",
-        "failed",
-      ],
+      enum: ["created", "paid", "active", "cancelled", "failed"],
       default: "created",
     },
 
