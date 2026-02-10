@@ -17,61 +17,38 @@ const app = express();
 /* ======================================================
    RAZORPAY WEBHOOK (RAW BODY – MANDATORY)
    ====================================================== */
+
 app.post(
   "/api/subscription-webhook",
-  express.raw({ type: "application/json" }),
+  express.raw({ type: "*/*" }),   // 👈 IMPORTANT
   async (req, res) => {
     try {
-      const signature = req.headers["x-razorpay-signature"];
-      const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+      const razorpaySignature = req.headers["x-razorpay-signature"];
+      const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-      const body = req.body; //  BUFFER
-
-      console.log("Body type:", Buffer.isBuffer(body)); // must be true
+      //  THIS IS THE KEY FIX
+      const body = req.body.toString(); // STRING, not Buffer
 
       const expectedSignature = crypto
-        .createHmac("sha256", secret)
+        .createHmac("sha256", webhookSecret)
         .update(body)
         .digest("hex");
 
-      if (
-        !signature ||
-        !crypto.timingSafeEqual(
-          Buffer.from(signature),
-          Buffer.from(expectedSignature)
-        )
-      ) {
-        console.log(" Signature mismatch");
+      if (razorpaySignature !== expectedSignature) {
+        console.log("❌ Signature mismatch");
+        console.log("Received :", razorpaySignature);
+        console.log("Expected :", expectedSignature);
         return res.status(400).json({ success: false });
       }
 
-      const event = JSON.parse(body.toString());
-      const subscriptionId =
-        event.payload?.subscription?.entity?.id;
+      const event = JSON.parse(body);
 
-      console.log("✅ EVENT:", event.event);
+      console.log("✅ WEBHOOK VERIFIED:", event.event);
 
-      if (
-        event.event === "subscription.activated" ||
-        event.event === "subscription.charged"
-      ) {
-        await Payment.findOneAndUpdate(
-          { subscriptionId, type: "subscription" },
-          { status: "active" }
-        );
-      }
-
-      if (event.event === "subscription.cancelled") {
-        await Payment.findOneAndUpdate(
-          { subscriptionId },
-          { status: "cancelled" }
-        );
-      }
-
-      res.json({ success: true });
+      return res.json({ success: true });
     } catch (err) {
       console.error("Webhook error:", err);
-      res.status(500).json({ success: false });
+      return res.status(500).json({ success: false });
     }
   }
 );
