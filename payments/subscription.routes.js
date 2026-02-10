@@ -11,13 +11,12 @@ const router = express.Router();
    ====================================================== */
 router.post("/admin/create-plan", authMiddleware, async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access only",
-      });
-    }
-
+    // if (req.user.role !== "admin") {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Admin access only",
+    //   });
+    // }
     const plan = await razorpay.plans.create({
       period: "monthly",
       interval: 1,
@@ -101,47 +100,39 @@ router.post("/create-subscription", authMiddleware, async (req, res) => {
 /* ======================================================
    3️ RAZORPAY WEBHOOK (MANDATORY)
    ====================================================== */
-router.post(
-  "/subscription-webhook",
-  express.raw({ type: "application/json" }),
-  async (req, res) => {
-    try {
-      const signature = req.headers["x-razorpay-signature"];
-      const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+router.post("/subscription-webhook", async (req, res) => {
+  try {
+    const signature = req.headers["x-razorpay-signature"];
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-      const expectedSignature = crypto
-        .createHmac("sha256", secret)
-        .update(req.body)
-        .digest("hex");
+    const body = req.body; // BUFFER
 
-      if (signature !== expectedSignature) {
-        return res.status(400).json({ success: false });
-      }
+    const expectedSignature = crypto
+      .createHmac("sha256", secret)
+      .update(body)
+      .digest("hex");
 
-      const event = JSON.parse(req.body.toString());
-
-      //  payment successful
-      if (event.event === "subscription.activated") {
-        await Payment.findOneAndUpdate(
-          { subscriptionId: event.payload.subscription.entity.id },
-          { status: "active" }
-        );
-      }
-
-      // ❌ subscription cancelled
-      if (event.event === "subscription.cancelled") {
-        await Payment.findOneAndUpdate(
-          { subscriptionId: event.payload.subscription.entity.id },
-          { status: "cancelled" }
-        );
-      }
-
-      res.json({ status: "ok" });
-    } catch (err) {
-      res.status(500).json({ success: false });
+    if (
+      !crypto.timingSafeEqual(
+        Buffer.from(signature),
+        Buffer.from(expectedSignature)
+      )
+    ) {
+      console.log("Signature mismatch");
+      return res.status(400).json({ success: false });
     }
+
+    const event = JSON.parse(body.toString());
+
+    console.log("Webhook verified:", event.event);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Webhook error:", err);
+    res.status(500).json({ success: false });
   }
-);
+});
+
 
 router.get("/subscription-status", authMiddleware, async (req, res) => {
   const sub = await Payment.findOne({
