@@ -1,12 +1,17 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 // routes/auth.js
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Signup from "../models/UserScema.js";
 import { sendMail } from "../mailes/transporter.js"; 
+import QRCode from "qrcode";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import QrImage from "../models/QrImage.js";
 
 const router = express.Router();
-
 // --- Utility: Generate OTP ---
 function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -24,16 +29,68 @@ const verifyToken = (req, res, next) => {
   }
 };
 
+
+// S3 client (same as QR route)
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
+
+console.log("AWS KEY:", process.env.AWS_ACCESS_KEY_ID);
+console.log("AWS SECRET:", process.env.AWS_SECRET_ACCESS_KEY);
+console.log("AWS REGION:", process.env.AWS_REGION);
+console.log("AWS BUCKET:", process.env.AWS_BUCKET_NAME);
+
+// Function to generate random ID
+const generateRandomId = () => {
+  return Math.random().toString().slice(2, 12);
+};
+
 // --- Signup ---
 router.post("/signup", async (req, res) => {
   const { username, email, password } = req.body;
+
   try {
     const existUser = await Signup.findOne({ email });
-    if (existUser) return res.status(400).json({ message: "User already exists" });
+    if (existUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    // 1️ Create User
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new Signup({ username, email, password: hashedPassword });
+    const newUser = new Signup({
+      username,
+      email,
+      password: hashedPassword,
+    });
+
     await newUser.save();
-    res.status(201).json({ message: "User registered successfully" });
+    // 2️AUTO GENERATE QR AFTER SIGNUP 
+    const randomId = generateRandomId();
+    const redirectURL = `https://qr-review-system-fronmtend-7kye.vercel.app/form/${randomId}`;
+    // Generate QR Buffer
+    const qrBuffer = await QRCode.toBuffer(redirectURL, {
+      type: "png",
+      width: 600,
+      errorCorrectionLevel: "H",
+    });
+    // Upload to S3
+    const fileName = `qr-${newUser._id}-${randomId}.png`;
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: fileName,
+        Body: qrBuffer,
+        ContentType: "image/png",
+      })
+    );
+    const imageUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+    //Save QR in MongoDB
+    await QrImage.create({user: newUser._id, imageUrl, s3Key: fileName,randomId: randomId,data: redirectURL});
+    res.status(201).json({success: true,message: "User registered & QR generated successfully"});
   } catch (error) {
     console.log("Error during signup:", error);
     res.status(500).json({ message: "Internal server error" });

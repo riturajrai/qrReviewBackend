@@ -83,18 +83,36 @@ router.post("/generate-qr", authMiddleware, async (req, res) => {
 // =============================================================
 //  Get My QR
 // =============================================================
-
 router.get("/my-qr", authMiddleware, async (req, res) => {
   try {
-    const qr = await QrImage.findOne({ user: req.user._id });
+    let qr = await QrImage.findOne({ user: req.user._id });
 
+    //AUTO GENERATE IF NOT EXISTS
     if (!qr) {
-      return res.status(404).json({
-        success: false,
-        message: "QR not found",
+      const randomId = Math.random().toString().slice(2, 12);
+      const redirectURL = `https://qr-review-system-fronmtend-7kye.vercel.app/form/${randomId}`;
+      const qrBuffer = await QRCode.toBuffer(redirectURL, {
+        type: "png",
+        width: 600,
+        errorCorrectionLevel: "H",
+      });
+      const fileName = `qr-${req.user._id}-${randomId}.png`;
+      await s3.send(new PutObjectCommand({
+          Bucket: process.env.AWS_BUCKET_NAME,
+          Key: fileName,
+          Body: qrBuffer,
+          ContentType: "image/png",
+        })
+      );
+      const imageUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+      qr = await QrImage.create({
+        user: req.user._id,
+        imageUrl,
+        s3Key: fileName,
+        randomId,
+        data: redirectURL,
       });
     }
-
     res.status(200).json({ success: true, qr });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -116,7 +134,6 @@ router.delete("/delete-qr", authMiddleware, async (req, res) => {
         message: "QR not found",
       });
     }
-
     if (!qr.s3Key) {
       return res.status(400).json({
         success: false,

@@ -122,8 +122,6 @@ router.get("/get-url/:qrId", async (req, res) => {
   }
 });
 
-
-
 // UPDATE / Update URL & company name for logged-in user
 router.put("/update-url", authMiddleware, async (req, res) => {
   const { url, companyName, redirectFromRating } = req.body;
@@ -213,6 +211,5 @@ router.get("/get-url", authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
-
 export default router;
 
