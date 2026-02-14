@@ -188,4 +188,70 @@ router.get("/subscription-status", authMiddleware, async (req, res) => {
   }
 });
 
+/* ======================================================
+    USER – GET ALL SUBSCRIPTION HISTORY
+   ====================================================== */
+router.get("/subscription-history", authMiddleware, async (req, res) => {
+  try {
+    const subscriptions = await Payment.find({
+      userId: req.user._id,
+      type: "subscription",
+    })
+      .sort({ createdAt: -1 }) // Latest first
+      .lean();
+
+    if (!subscriptions || subscriptions.length === 0) {
+      return res.json({
+        success: true,
+        count: 0,
+        history: [],
+        message: "No subscription history found",
+      });
+    }
+
+    const historyWithRemaining = subscriptions.map((sub) => {
+      let daysRemaining = 0;
+      let hoursRemaining = 0;
+
+      if (sub.status === "active" && sub.currentEnd) {
+        const now = new Date();
+        const endDate = new Date(sub.currentEnd);
+        const diffMs = endDate - now;
+
+        if (diffMs > 0) {
+          daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          hoursRemaining = Math.ceil(diffMs / (1000 * 60 * 60));
+        }
+      }
+
+      return {
+        _id: sub._id,
+        subscriptionId: sub.subscriptionId,
+        planId: sub.planId,
+        amount: sub.amount,
+        currency: sub.currency,
+        status: sub.status,
+        shortUrl: sub.shortUrl,
+        currentStart: sub.currentStart,
+        currentEnd: sub.currentEnd,
+        daysRemaining,
+        hoursRemaining,
+        createdAt: sub.createdAt,
+      };
+    });
+
+    res.json({
+      success: true,
+      count: historyWithRemaining.length,
+      history: historyWithRemaining,
+    });
+  } catch (error) {
+    console.error("SUBSCRIPTION HISTORY ERROR:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
 export default router;
