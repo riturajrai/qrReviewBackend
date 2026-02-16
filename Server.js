@@ -132,6 +132,7 @@ app.use(
       "https://admin.infravion.com",
       "https://infravion.com",
       "https://qr-review-system-fronmtend-7kye.vercel.app",
+      "https://qr.vocalheart.com"
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     credentials: true,
