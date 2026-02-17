@@ -70,7 +70,7 @@ router.post("/signup", async (req, res) => {
     await newUser.save();
     // 2️AUTO GENERATE QR AFTER SIGNUP 
     const randomId = generateRandomId();
-    const redirectURL = `https://qr-review-system-fronmtend-7kye.vercel.app/form/${randomId}`;
+    const redirectURL = `https://qr.vocalheart.com/form/${randomId}`;
     // Generate QR Buffer
     const qrBuffer = await QRCode.toBuffer(redirectURL, {
       type: "png",
@@ -255,7 +255,6 @@ router.delete("/profile", verifyToken, async (req, res) => {
       secure: process.env.NODE_ENV === "production",
       sameSite: "none",
     });
-
     res.json({ success: true, message: "Account deleted permanently" });
   } catch (err) {
     console.error(err);
@@ -294,19 +293,14 @@ router.post("/forgot-password", async (req, res) => {
 router.post("/reset-password", async (req, res) => {
   const { otp, newPassword } = req.body;
   const otpToken = req.cookies.otpToken;
-
   if (!otpToken) return res.status(400).json({ message: "OTP expired or missing" });
-
   try {
     const decoded = jwt.verify(otpToken, process.env.JWT_SECRET);
     if (decoded.otp !== otp) return res.status(400).json({ message: "Invalid OTP" });
-
     const user = await Signup.findById(decoded.id);
     if (!user) return res.status(404).json({ message: "User not found" });
-
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
-
     res.clearCookie("otpToken");
     res.json({ message: "Password reset successful. Login with new password." });
   } catch (err) {

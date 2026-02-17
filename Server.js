@@ -130,11 +130,10 @@ async function handleSubscriptionCompleted(subscription) {
       status: "active",
     }
   );
-}
+};
 
 async function handleSubscriptionCancelled(subscription) {
   console.log("Subscription Cancelled:", subscription.id);
-
   await Payment.updateOne(
     { subscriptionId: subscription.id },
     {
